@@ -43,8 +43,10 @@ for block in ticket_blocks:
         or "4+" in block_lower
     )
 
-    if not has_four:
-        continue
+   if has_four:
+    results.append("Likely supports 4 seats together")
+else:
+    results.append("Seat quantity not confirmed")
 
     results.append(f"Deal #{deal_number}")
 
