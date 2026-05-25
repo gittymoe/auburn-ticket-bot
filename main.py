@@ -14,56 +14,99 @@ results = []
 
 with sync_playwright() as p:
 
-    browser = p.chromium.launch(headless=True)
+```
+browser = p.chromium.launch(headless=True)
 
-    page = browser.new_page(
-        viewport={"width": 1600, "height": 1400}
-    )
+page = browser.new_page(
+    viewport={"width": 1600, "height": 1400}
+)
 
-    page.goto(EVENT_URL, timeout=60000)
+page.goto(EVENT_URL, timeout=60000)
 
-    page.wait_for_timeout(15000)
+page.wait_for_timeout(10000)
 
-    body_text = page.locator("body").inner_text()
+#
+# TRY TO APPLY 4-TICKET FILTER
+#
 
-    browser.close()
+try:
+
+    page.get_by_text("Filters").click(timeout=5000)
+
+    page.wait_for_timeout(3000)
+
+    possible_quantity_buttons = [
+        "4 Tickets",
+        "4 tickets",
+        "Qty 4",
+        "Quantity 4",
+        "4+"
+    ]
+
+    for label in possible_quantity_buttons:
+
+        try:
+            page.get_by_text(label).click(timeout=2000)
+            break
+        except:
+            pass
+
+    page.wait_for_timeout(2000)
+
+    possible_apply_buttons = [
+        "Apply",
+        "Show Results",
+        "Done"
+    ]
+
+    for label in possible_apply_buttons:
+
+        try:
+            page.get_by_text(label).click(timeout=2000)
+            break
+        except:
+            pass
+
+    page.wait_for_timeout(5000)
+
+    results.append("4-ticket filter attempted successfully.\n")
+
+except Exception as e:
+
+    results.append(f"Could not apply 4-ticket filter: {str(e)}\n")
+
+body_text = page.locator("body").inner_text()
+
+browser.close()
+```
 
 lines = [
-    line.strip()
-    for line in body_text.splitlines()
-    if line.strip()
+line.strip()
+for line in body_text.splitlines()
+if line.strip()
 ]
 
 ticket_blocks = []
 
 for i, line in enumerate(lines):
 
-    price_match = re.search(r"\$\d+", line)
+```
+if re.search(r"\$\d+", line):
 
-    if price_match:
+    nearby = lines[max(0, i-1): min(len(lines), i+2)]
 
-        nearby = lines[max(0, i-1): min(len(lines), i+2)]
+    combined = " | ".join(nearby)
 
-        cleaned_parts = []
+    if (
+        "Includes Fees" in combined
+        or "Upper" in combined
+        or "Lower" in combined
+        or "Row" in combined
+    ):
 
-        for part in nearby:
-
-            part = part.strip()
-
-            if len(part) > 2:
-                cleaned_parts.append(part)
-
-        combined = " | ".join(cleaned_parts)
-
-        if (
-            "Includes Fees" in combined
-            or "Upper" in combined
-            or "Lower" in combined
-            or "Row" in combined
-        ):
-
-            if combined not in ticket_blocks:
-                ticket_blocks.append(combined)
+        if combined not in ticket_blocks:
+            ticket_blocks.append(combined)
+```
 
 results.append("Auburn vs Tennessee Ticket Deal Summary\n")
 
@@ -72,72 +115,54 @@ results.append(f"Event Link: {EVENT_URL}\n")
 
 if not ticket_blocks:
 
-    results.append("No structured ticket blocks found.")
+```
+results.append("No ticket listings found.")
+```
 
 else:
 
-    deal_number = 1
+```
+for idx, block in enumerate(ticket_blocks[:20], start=1):
 
-    for block in ticket_blocks[:20]:
+    results.append(f"Deal #{idx}")
 
-        results.append(f"Deal #{deal_number}")
+    results.append(block)
 
-        clean_block = block.replace("  ", " ")
+    prices = re.findall(r"\$\d+", block)
 
-        results.append(clean_block)
+    if prices:
 
-        block_lower = block.lower()
+        numeric = [
+            int(p.replace("$", ""))
+            for p in prices
+        ]
 
-        has_four = (
-            "4 tickets" in block_lower
-            or "qty 4" in block_lower
-            or "quantity 4" in block_lower
-            or "4+" in block_lower
-        )
+        cheapest = min(numeric)
 
-        if has_four:
-            results.append("Likely supports 4 seats together")
-        else:
-            results.append("Seat quantity not confirmed")
+        results.append(f"Price Per Ticket: ${cheapest}")
+        results.append(f"Estimated Total For 4: ${cheapest * 4}")
 
-        price_search = re.findall(r"\$\d+", block)
+    if "Upper" in block:
+        results.append("Area: Upper Level")
 
-        if price_search:
+    if "Lower" in block:
+        results.append("Area: Lower Level")
 
-            numeric_prices = [
-                int(p.replace("$", ""))
-                for p in price_search
-            ]
+    results.append(f"Buy Link: {EVENT_URL}")
 
-            cheapest = min(numeric_prices)
-
-            total_price = cheapest * 4
-
-            results.append(f"Price Per Ticket: ${cheapest}")
-            results.append(f"Estimated Total For 4: ${total_price}")
-
-        if "Upper" in block:
-            results.append("Area: Upper Level")
-
-        if "Lower" in block:
-            results.append("Area: Lower Level")
-
-        results.append(f"Buy Link: {EVENT_URL}")
-
-        results.append("")
-
-        deal_number += 1
+    results.append("")
+```
 
 message = "\n".join(results)
 
 msg = MIMEText(message)
 
-msg["Subject"] = "Improved Auburn Ticket Deal Summary"
+msg["Subject"] = "Auburn 4-Ticket Deal Scan"
 msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-    smtp.login(GMAIL_USER, GMAIL_PASS)
-    smtp.send_message(msg)
+smtp.login(GMAIL_USER, GMAIL_PASS)
+smtp.send_message(msg)
 
-print("Improved ticket summary sent.")
+print("4-ticket filtered scan complete.")
