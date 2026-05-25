@@ -54,19 +54,23 @@ with sync_playwright() as p:
                 if "$" in line:
 
                     nearby = lines[
-                        max(0, i - 2):min(len(lines), i + 3)
-                    ]
+               max(0, i - 4):min(len(lines), i + 5)
 
                     combined = " | ".join(nearby)
 
-                    if (
-                        "row" in combined.lower()
-                        or "upper" in combined.lower()
-                        or "lower" in combined.lower()
-                        or "club" in combined.lower()
-                        or "section" in combined.lower()
-                        or "seat" in combined.lower()
-                    ):
+                   if (
+    "row" in combined.lower()
+    or "upper" in combined.lower()
+    or "lower" in combined.lower()
+    or "club" in combined.lower()
+    or "section" in combined.lower()
+    or "seat" in combined.lower()
+    or "deal" in combined.lower()
+    or "fees" in combined.lower()
+    or "/ea" in combined.lower()
+    or "ticket" in combined.lower()
+    or "$" in combined
+):
 
                         if combined not in ticket_blocks:
                             ticket_blocks.append(combined)
