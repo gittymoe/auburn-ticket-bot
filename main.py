@@ -25,58 +25,6 @@ page.goto(EVENT_URL, timeout=60000)
 
 page.wait_for_timeout(10000)
 
-#
-# Try applying 4-ticket filters
-#
-
-try:
-
-    page.get_by_text("Filters").click(timeout=5000)
-
-    page.wait_for_timeout(3000)
-
-    possible_quantity_buttons = [
-        "4 Tickets",
-        "4 tickets",
-        "Qty 4",
-        "Quantity 4",
-        "4+"
-    ]
-
-    for label in possible_quantity_buttons:
-
-        try:
-            page.get_by_text(label).click(timeout=2000)
-            results.append(f"Clicked filter option: {label}")
-            break
-
-        except:
-            pass
-
-    page.wait_for_timeout(2000)
-
-    possible_apply_buttons = [
-        "Apply",
-        "Show Results",
-        "Done"
-    ]
-
-    for label in possible_apply_buttons:
-
-        try:
-            page.get_by_text(label).click(timeout=2000)
-            results.append(f"Clicked apply button: {label}")
-            break
-
-        except:
-            pass
-
-    page.wait_for_timeout(5000)
-
-except Exception as e:
-
-    results.append(f"Could not apply filters: {str(e)}")
-
 body_text = page.locator("body").inner_text()
 
 browser.close()
@@ -110,7 +58,6 @@ if re.search(r"\$\d+", line):
             ticket_blocks.append(combined)
 ```
 
-results.append("")
 results.append("Auburn vs Tennessee Ticket Deal Summary")
 results.append("")
 results.append("Source: Gametime")
@@ -161,7 +108,7 @@ message = "\n".join(results)
 
 msg = MIMEText(message)
 
-msg["Subject"] = "Auburn 4-Ticket Deal Scan"
+msg["Subject"] = "Auburn Ticket Deal Summary"
 msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
@@ -169,4 +116,4 @@ with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
 smtp.login(GMAIL_USER, GMAIL_PASS)
 smtp.send_message(msg)
 
-print("4-ticket filtered scan complete.")
+print("Ticket summary sent.")
