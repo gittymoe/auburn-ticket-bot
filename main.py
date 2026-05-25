@@ -16,7 +16,9 @@ with sync_playwright() as p:
 
     browser = p.chromium.launch(headless=True)
 
-    page = browser.new_page(viewport={"width": 1600, "height": 1400})
+    page = browser.new_page(
+        viewport={"width": 1600, "height": 1400}
+    )
 
     page.goto(EVENT_URL, timeout=60000)
 
@@ -26,67 +28,46 @@ with sync_playwright() as p:
 
     browser.close()
 
-lines = [line.strip() for line in body_text.splitlines() if line.strip()]
+lines = [
+    line.strip()
+    for line in body_text.splitlines()
+    if line.strip()
+]
 
 ticket_blocks = []
 
-deal_number = 1
+for i, line in enumerate(lines):
 
-for block in ticket_blocks:
+    price_match = re.search(r"\$\d+", line)
 
-    block_lower = block.lower()
+    if price_match:
 
-    has_four = (
-        "4 tickets" in block_lower
-        or "qty 4" in block_lower
-        or "quantity 4" in block_lower
-        or "4+" in block_lower
-    )
+        nearby = lines[max(0, i-1): min(len(lines), i+2)]
 
-   if has_four:
-    results.append("Likely supports 4 seats together")
-else:
-    results.append("Seat quantity not confirmed")
+        cleaned_parts = []
 
-    results.append(f"Deal #{deal_number}")
+        for part in nearby:
 
-    clean_block = block.replace("  ", " ")
+            part = part.strip()
 
-    results.append(clean_block)
+            if len(part) > 2:
+                cleaned_parts.append(part)
 
-    price_search = re.findall(r"\$\d+", block)
+        combined = " | ".join(cleaned_parts)
 
-    if price_search:
+        if (
+            "Includes Fees" in combined
+            or "Upper" in combined
+            or "Lower" in combined
+            or "Row" in combined
+        ):
 
-        numeric_prices = [
-            int(p.replace("$", ""))
-            for p in price_search
-        ]
+            if combined not in ticket_blocks:
+                ticket_blocks.append(combined)
 
-        cheapest = min(numeric_prices)
+results.append("Auburn vs Tennessee Ticket Deal Summary\n")
 
-        total_price = cheapest * 4
-
-        results.append(f"Price Per Ticket: ${cheapest}")
-        results.append(f"Estimated Total For 4: ${total_price}")
-
-    if "Upper" in block:
-        results.append("Area: Upper Level")
-
-    if "Lower" in block:
-        results.append("Area: Lower Level")
-
-    results.append(f"Buy Link: {EVENT_URL}")
-
-    results.append("")
-
-    deal_number += 1
-
-if deal_number == 1:
-
-    results.append("No obvious 4-seat listings detected.")
-
-results.append(f"Source: Gametime")
+results.append("Source: Gametime")
 results.append(f"Event Link: {EVENT_URL}\n")
 
 if not ticket_blocks:
@@ -95,13 +76,29 @@ if not ticket_blocks:
 
 else:
 
-    for idx, block in enumerate(ticket_blocks[:20], start=1):
+    deal_number = 1
 
-        results.append(f"Deal #{idx}")
+    for block in ticket_blocks[:20]:
+
+        results.append(f"Deal #{deal_number}")
 
         clean_block = block.replace("  ", " ")
 
         results.append(clean_block)
+
+        block_lower = block.lower()
+
+        has_four = (
+            "4 tickets" in block_lower
+            or "qty 4" in block_lower
+            or "quantity 4" in block_lower
+            or "4+" in block_lower
+        )
+
+        if has_four:
+            results.append("Likely supports 4 seats together")
+        else:
+            results.append("Seat quantity not confirmed")
 
         price_search = re.findall(r"\$\d+", block)
 
@@ -114,7 +111,10 @@ else:
 
             cheapest = min(numeric_prices)
 
-            results.append(f"Detected Price: ${cheapest}")
+            total_price = cheapest * 4
+
+            results.append(f"Price Per Ticket: ${cheapest}")
+            results.append(f"Estimated Total For 4: ${total_price}")
 
         if "Upper" in block:
             results.append("Area: Upper Level")
@@ -125,6 +125,8 @@ else:
         results.append(f"Buy Link: {EVENT_URL}")
 
         results.append("")
+
+        deal_number += 1
 
 message = "\n".join(results)
 
