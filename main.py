@@ -36,9 +36,19 @@ for i, line in enumerate(lines):
 
     if price_match:
 
-        nearby = lines[max(0, i-3): min(len(lines), i+4)]
+        nearby = lines[max(0, i-1): min(len(lines), i+2)]
 
-        combined = " | ".join(nearby)
+        cleaned_parts = []
+
+        for part in nearby:
+
+            part = part.strip()
+
+            if len(part) > 2:
+
+                cleaned_parts.append(part)
+
+        combined = " | ".join(cleaned_parts)
 
         if (
             "Includes Fees" in combined
