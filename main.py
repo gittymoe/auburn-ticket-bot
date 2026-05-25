@@ -34,7 +34,7 @@ with sync_playwright() as p:
 
             page.goto(url, timeout=90000)
 
-            page.wait_for_timeout(12000)
+            page.wait_for_timeout(15000)
 
             body_text = page.locator("body").inner_text()
 
@@ -53,24 +53,28 @@ with sync_playwright() as p:
 
                 if "$" in line:
 
-                    nearby = lines[
-               max(0, i - 4):min(len(lines), i + 5)
+                    start = max(0, i - 4)
+                    end = min(len(lines), i + 5)
+
+                    nearby = lines[start:end]
 
                     combined = " | ".join(nearby)
 
-                   if (
-    "row" in combined.lower()
-    or "upper" in combined.lower()
-    or "lower" in combined.lower()
-    or "club" in combined.lower()
-    or "section" in combined.lower()
-    or "seat" in combined.lower()
-    or "deal" in combined.lower()
-    or "fees" in combined.lower()
-    or "/ea" in combined.lower()
-    or "ticket" in combined.lower()
-    or "$" in combined
-):
+                    combined_lower = combined.lower()
+
+                    if (
+                        "row" in combined_lower
+                        or "upper" in combined_lower
+                        or "lower" in combined_lower
+                        or "club" in combined_lower
+                        or "section" in combined_lower
+                        or "seat" in combined_lower
+                        or "deal" in combined_lower
+                        or "fees" in combined_lower
+                        or "/ea" in combined_lower
+                        or "ticket" in combined_lower
+                        or "$" in combined
+                    ):
 
                         if combined not in ticket_blocks:
                             ticket_blocks.append(combined)
@@ -144,7 +148,7 @@ with sync_playwright() as p:
             all_results.append("=" * 60)
             all_results.append(site_name.upper())
             all_results.append("=" * 60)
-            all_results.append(f"FAILED TO SCAN SITE")
+            all_results.append("FAILED TO SCAN SITE")
             all_results.append(str(e))
             all_results.append("")
 
@@ -155,7 +159,9 @@ message = "\n".join(all_results)
 msg = MIMEText(message)
 
 msg["Subject"] = "Auburn vs Tennessee Ticket Deals"
+
 msg["From"] = GMAIL_USER
+
 msg["To"] = ALERT_EMAIL
 
 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
