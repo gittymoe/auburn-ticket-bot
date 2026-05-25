@@ -19,35 +19,40 @@ with sync_playwright() as p:
 
     page.goto(URL, timeout=60000)
 
-    page.wait_for_timeout(10000)
+    page.wait_for_timeout(12000)
 
-    text = page.locator("body").inner_text()
+    body_text = page.locator("body").inner_text()
 
     browser.close()
 
-prices = []
+lines = body_text.splitlines()
 
-for line in text.splitlines():
+ticket_lines = []
 
-    if "$" in line:
+for i, line in enumerate(lines):
 
-        cleaned = line.strip()
+    line = line.strip()
 
-        if len(cleaned) < 80:
-            prices.append(cleaned)
+    if "/ea" in line or "$" in line:
 
-unique_prices = list(dict.fromkeys(prices))
+        context = lines[max(0, i-2): min(len(lines), i+3)]
 
-results.append("Possible Ticket Listings Found:\n")
+        combined = " | ".join(context)
 
-for item in unique_prices[:40]:
-    results.append(item)
+        if combined not in ticket_lines:
+            ticket_lines.append(combined)
+
+results.append("Auburn vs Tennessee Ticket Listings\n")
+
+for listing in ticket_lines[:25]:
+    results.append(listing)
+    results.append("\n")
 
 message = "\n".join(results)
 
 msg = MIMEText(message)
 
-msg["Subject"] = "Auburn Ticket Browser Scan"
+msg["Subject"] = "Structured Auburn Ticket Scan"
 msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
@@ -55,4 +60,4 @@ with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
     smtp.login(GMAIL_USER, GMAIL_PASS)
     smtp.send_message(msg)
 
-print("Browser scan complete.")
+print("Structured ticket scan sent.")
