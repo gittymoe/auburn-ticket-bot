@@ -26,7 +26,7 @@ page.goto(EVENT_URL, timeout=60000)
 page.wait_for_timeout(10000)
 
 #
-# TRY TO APPLY 4-TICKET FILTER
+# Try applying 4-ticket filters
 #
 
 try:
@@ -47,7 +47,9 @@ try:
 
         try:
             page.get_by_text(label).click(timeout=2000)
+            results.append(f"Clicked filter option: {label}")
             break
+
         except:
             pass
 
@@ -63,17 +65,17 @@ try:
 
         try:
             page.get_by_text(label).click(timeout=2000)
+            results.append(f"Clicked apply button: {label}")
             break
+
         except:
             pass
 
     page.wait_for_timeout(5000)
 
-    results.append("4-ticket filter attempted successfully.\n")
-
 except Exception as e:
 
-    results.append(f"Could not apply 4-ticket filter: {str(e)}\n")
+    results.append(f"Could not apply filters: {str(e)}")
 
 body_text = page.locator("body").inner_text()
 
@@ -108,10 +110,12 @@ if re.search(r"\$\d+", line):
             ticket_blocks.append(combined)
 ```
 
-results.append("Auburn vs Tennessee Ticket Deal Summary\n")
-
+results.append("")
+results.append("Auburn vs Tennessee Ticket Deal Summary")
+results.append("")
 results.append("Source: Gametime")
-results.append(f"Event Link: {EVENT_URL}\n")
+results.append(f"Event Link: {EVENT_URL}")
+results.append("")
 
 if not ticket_blocks:
 
