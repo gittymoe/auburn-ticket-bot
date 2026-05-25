@@ -1,4 +1,5 @@
 import os
+import json
 import smtplib
 from email.mime.text import MIMEText
 from playwright.sync_api import sync_playwright
@@ -7,11 +8,30 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_PASS = os.environ["GMAIL_PASS"]
 ALERT_EMAIL = os.environ["ALERT_EMAIL"]
 
-SITE_NAME = "Gametime"
-
 EVENT_URL = "https://gametime.co/college-football/tigers-at-volunteers-tickets/10-3-2026-knoxville-tn-neyland-stadium/events/68d394609ae20cad877e77c9"
 
-results = []
+captured_data = []
+
+def handle_response(response):
+
+    try:
+        url = response.url
+
+        if "graphql" in url.lower() or "listing" in url.lower():
+
+            content_type = response.headers.get("content-type", "")
+
+            if "application/json" in content_type:
+
+                data = response.json()
+
+                captured_data.append({
+                    "url": url,
+                    "data": data
+                })
+
+    except Exception:
+        pass
 
 with sync_playwright() as p:
 
@@ -19,48 +39,45 @@ with sync_playwright() as p:
 
     page = browser.new_page()
 
+    page.on("response", handle_response)
+
     page.goto(EVENT_URL, timeout=60000)
 
-    page.wait_for_timeout(12000)
-
-    body_text = page.locator("body").inner_text()
+    page.wait_for_timeout(15000)
 
     browser.close()
 
-lines = body_text.splitlines()
+results = []
 
-ticket_lines = []
+results.append("Auburn vs Tennessee Structured Ticket Data\n")
 
-for i, line in enumerate(lines):
+listing_count = 0
 
-    line = line.strip()
+for item in captured_data:
 
-    if "/ea" in line or "$" in line:
+    data_str = json.dumps(item["data"])
 
-        context = lines[max(0, i-2): min(len(lines), i+3)]
+    if "$" in data_str or "price" in data_str.lower():
 
-        combined = " | ".join(context)
+        results.append(f"Data Source: {item['url'][:120]}")
+        results.append("")
 
-        if combined not in ticket_lines:
-            ticket_lines.append(combined)
+        results.append(data_str[:4000])
+        results.append("\n=========================\n")
 
-results.append("Auburn vs Tennessee Ticket Deals\n")
+        listing_count += 1
 
-results.append(f"Source Site: {SITE_NAME}")
-results.append(f"Direct Link: {EVENT_URL}\n")
+    if listing_count >= 5:
+        break
 
-for idx, listing in enumerate(ticket_lines[:20], start=1):
-
-    results.append(f"Listing #{idx}")
-    results.append(listing)
-    results.append(f"Buy Here: {EVENT_URL}")
-    results.append("")
+if listing_count == 0:
+    results.append("No structured listing JSON found.")
 
 message = "\n".join(results)
 
 msg = MIMEText(message)
 
-msg["Subject"] = "Auburn Ticket Deals With Links"
+msg["Subject"] = "Structured Auburn Ticket JSON Scan"
 msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
@@ -68,4 +85,4 @@ with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
     smtp.login(GMAIL_USER, GMAIL_PASS)
     smtp.send_message(msg)
 
-print("Enhanced ticket email sent.")
+print("Structured JSON scan complete.")
