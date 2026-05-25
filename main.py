@@ -14,95 +14,98 @@ results = []
 
 with sync_playwright() as p:
 
-```
-browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(headless=True)
 
-page = browser.new_page(
-    viewport={"width": 1600, "height": 1400}
-)
+    page = browser.new_page(
+        viewport={"width": 1600, "height": 1400}
+    )
 
-page.goto(EVENT_URL, timeout=60000)
+    page.goto(EVENT_URL, timeout=60000)
 
-page.wait_for_timeout(10000)
+    page.wait_for_timeout(10000)
 
-body_text = page.locator("body").inner_text()
+    body_text = page.locator("body").inner_text()
 
-browser.close()
-```
+    browser.close()
 
-lines = [
-line.strip()
-for line in body_text.splitlines()
-if line.strip()
-]
+lines = []
+
+for line in body_text.splitlines():
+
+    clean = line.strip()
+
+    if clean:
+        lines.append(clean)
 
 ticket_blocks = []
 
 for i, line in enumerate(lines):
 
-```
-if re.search(r"\$\d+", line):
+    if "$" in line:
 
-    nearby = lines[max(0, i-1): min(len(lines), i+2)]
+        start = max(0, i - 2)
+        end = min(len(lines), i + 3)
 
-    combined = " | ".join(nearby)
+        nearby = lines[start:end]
 
-    if (
-        "Includes Fees" in combined
-        or "Upper" in combined
-        or "Lower" in combined
-        or "Row" in combined
-    ):
+        combined = " | ".join(nearby)
 
-        if combined not in ticket_blocks:
-            ticket_blocks.append(combined)
-```
+        if (
+            "Includes Fees" in combined
+            or "Upper" in combined
+            or "Lower" in combined
+            or "Row" in combined
+        ):
+
+            if combined not in ticket_blocks:
+                ticket_blocks.append(combined)
 
 results.append("Auburn vs Tennessee Ticket Deal Summary")
+results.append("")
+results.append("Looking for blocks of 4 tickets together")
 results.append("")
 results.append("Source: Gametime")
 results.append(f"Event Link: {EVENT_URL}")
 results.append("")
 
-if not ticket_blocks:
+if len(ticket_blocks) == 0:
 
-```
-results.append("No ticket listings found.")
-```
+    results.append("No ticket listings found.")
 
 else:
 
-```
-for idx, block in enumerate(ticket_blocks[:20], start=1):
+    for idx, block in enumerate(ticket_blocks[:20], start=1):
 
-    results.append(f"Deal #{idx}")
+        results.append(f"Deal #{idx}")
+        results.append(block)
 
-    results.append(block)
+        prices = re.findall(r"\$\d+", block)
 
-    prices = re.findall(r"\$\d+", block)
+        if len(prices) > 0:
 
-    if prices:
+            numeric_prices = []
 
-        numeric = [
-            int(p.replace("$", ""))
-            for p in prices
-        ]
+            for p in prices:
 
-        cheapest = min(numeric)
+                number = int(p.replace("$", ""))
 
-        results.append(f"Price Per Ticket: ${cheapest}")
-        results.append(f"Estimated Total For 4: ${cheapest * 4}")
+                numeric_prices.append(number)
 
-    if "Upper" in block:
-        results.append("Area: Upper Level")
+            cheapest = min(numeric_prices)
 
-    if "Lower" in block:
-        results.append("Area: Lower Level")
+            total_for_four = cheapest * 4
 
-    results.append(f"Buy Link: {EVENT_URL}")
+            results.append(f"Price Per Ticket: ${cheapest}")
+            results.append(f"Estimated Total For 4 Tickets: ${total_for_four}")
 
-    results.append("")
-```
+        if "Upper" in block:
+            results.append("Area: Upper Level")
+
+        if "Lower" in block:
+            results.append("Area: Lower Level")
+
+        results.append(f"Buy Link: {EVENT_URL}")
+        results.append("")
 
 message = "\n".join(results)
 
@@ -113,7 +116,9 @@ msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-smtp.login(GMAIL_USER, GMAIL_PASS)
-smtp.send_message(msg)
 
-print("Ticket summary sent.")
+    smtp.login(GMAIL_USER, GMAIL_PASS)
+
+    smtp.send_message(msg)
+
+print("Ticket summary sent successfully.")
