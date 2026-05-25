@@ -1,4 +1,5 @@
 import os
+import re
 import smtplib
 import requests
 from email.mime.text import MIMEText
@@ -8,50 +9,43 @@ GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_PASS = os.environ["GMAIL_PASS"]
 ALERT_EMAIL = os.environ["ALERT_EMAIL"]
 
-sites = {
-    "StubHub": "https://www.stubhub.com/tennessee-volunteers-football-knoxville-tickets-10-3-2026/event/107140307/",
-    "Gametime": "https://gametime.co/college-football/tigers-at-volunteers-tickets/10-3-2026-knoxville-tn-neyland-stadium/events/68d394609ae20cad877e77c9",
-    "Ticketmaster": "https://www.ticketmaster.com/"
-}
-
-results = []
+URL = "https://gametime.co/college-football/tigers-at-volunteers-tickets/10-3-2026-knoxville-tn-neyland-stadium/events/68d394609ae20cad877e77c9"
 
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-for site, url in sites.items():
-    try:
-        response = requests.get(url, headers=headers, timeout=15)
+response = requests.get(URL, headers=headers, timeout=20)
 
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, "html.parser")
+results = []
 
-            title = soup.title.string if soup.title else "No title found"
+if response.status_code == 200:
 
-            results.append(
-                f"{site}\n"
-                f"URL: {url}\n"
-                f"Page Title: {title}\n"
-            )
+    soup = BeautifulSoup(response.text, "html.parser")
 
-        else:
-            results.append(
-                f"{site}\n"
-                f"Failed with status code {response.status_code}\n"
-            )
+    text = soup.get_text()
 
-    except Exception as e:
-        results.append(
-            f"{site}\n"
-            f"Error: {str(e)}\n"
-        )
+    prices = re.findall(r"\$\d+", text)
 
-message = "\n\n".join(results)
+    unique_prices = sorted(set(prices))
+
+    if unique_prices:
+        results.append("Possible ticket prices found:\n")
+
+        for price in unique_prices[:20]:
+            results.append(price)
+
+    else:
+        results.append("No prices detected.")
+
+else:
+    results.append(f"Failed with status code {response.status_code}")
+
+message = "\n".join(results)
 
 msg = MIMEText(message)
 
-msg["Subject"] = "Auburn vs Tennessee Ticket Scan"
+msg["Subject"] = "Auburn Ticket Price Scan"
 msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
@@ -59,4 +53,4 @@ with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
     smtp.login(GMAIL_USER, GMAIL_PASS)
     smtp.send_message(msg)
 
-print("Ticket scan email sent.")
+print("Price scan email sent.")
