@@ -1,9 +1,7 @@
 import os
-import re
 import smtplib
-import requests
 from email.mime.text import MIMEText
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 GMAIL_USER = os.environ["GMAIL_USER"]
 GMAIL_PASS = os.environ["GMAIL_PASS"]
@@ -11,41 +9,45 @@ ALERT_EMAIL = os.environ["ALERT_EMAIL"]
 
 URL = "https://gametime.co/college-football/tigers-at-volunteers-tickets/10-3-2026-knoxville-tn-neyland-stadium/events/68d394609ae20cad877e77c9"
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-response = requests.get(URL, headers=headers, timeout=20)
-
 results = []
 
-if response.status_code == 200:
+with sync_playwright() as p:
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    browser = p.chromium.launch(headless=True)
 
-    text = soup.get_text()
+    page = browser.new_page()
 
-    prices = re.findall(r"\$\d+", text)
+    page.goto(URL, timeout=60000)
 
-    unique_prices = sorted(set(prices))
+    page.wait_for_timeout(10000)
 
-    if unique_prices:
-        results.append("Possible ticket prices found:\n")
+    text = page.locator("body").inner_text()
 
-        for price in unique_prices[:20]:
-            results.append(price)
+    browser.close()
 
-    else:
-        results.append("No prices detected.")
+prices = []
 
-else:
-    results.append(f"Failed with status code {response.status_code}")
+for line in text.splitlines():
+
+    if "$" in line:
+
+        cleaned = line.strip()
+
+        if len(cleaned) < 80:
+            prices.append(cleaned)
+
+unique_prices = list(dict.fromkeys(prices))
+
+results.append("Possible Ticket Listings Found:\n")
+
+for item in unique_prices[:40]:
+    results.append(item)
 
 message = "\n".join(results)
 
 msg = MIMEText(message)
 
-msg["Subject"] = "Auburn Ticket Price Scan"
+msg["Subject"] = "Auburn Ticket Browser Scan"
 msg["From"] = GMAIL_USER
 msg["To"] = ALERT_EMAIL
 
@@ -53,4 +55,4 @@ with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
     smtp.login(GMAIL_USER, GMAIL_PASS)
     smtp.send_message(msg)
 
-print("Price scan email sent.")
+print("Browser scan complete.")
