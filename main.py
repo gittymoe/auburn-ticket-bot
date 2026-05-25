@@ -30,38 +30,59 @@ lines = [line.strip() for line in body_text.splitlines() if line.strip()]
 
 ticket_blocks = []
 
-for i, line in enumerate(lines):
+deal_number = 1
 
-    price_match = re.search(r"\$\d+", line)
+for block in ticket_blocks:
 
-    if price_match:
+    block_lower = block.lower()
 
-        nearby = lines[max(0, i-1): min(len(lines), i+2)]
+    has_four = (
+        "4 tickets" in block_lower
+        or "qty 4" in block_lower
+        or "quantity 4" in block_lower
+        or "4+" in block_lower
+    )
 
-        cleaned_parts = []
+    if not has_four:
+        continue
 
-        for part in nearby:
+    results.append(f"Deal #{deal_number}")
 
-            part = part.strip()
+    clean_block = block.replace("  ", " ")
 
-            if len(part) > 2:
+    results.append(clean_block)
 
-                cleaned_parts.append(part)
+    price_search = re.findall(r"\$\d+", block)
 
-        combined = " | ".join(cleaned_parts)
+    if price_search:
 
-        if (
-            "Includes Fees" in combined
-            or "Upper" in combined
-            or "Lower" in combined
-            or "Section" in combined
-            or "Row" in combined
-        ):
+        numeric_prices = [
+            int(p.replace("$", ""))
+            for p in price_search
+        ]
 
-            if combined not in ticket_blocks:
-                ticket_blocks.append(combined)
+        cheapest = min(numeric_prices)
 
-results.append("Auburn vs Tennessee Ticket Deal Summary\n")
+        total_price = cheapest * 4
+
+        results.append(f"Price Per Ticket: ${cheapest}")
+        results.append(f"Estimated Total For 4: ${total_price}")
+
+    if "Upper" in block:
+        results.append("Area: Upper Level")
+
+    if "Lower" in block:
+        results.append("Area: Lower Level")
+
+    results.append(f"Buy Link: {EVENT_URL}")
+
+    results.append("")
+
+    deal_number += 1
+
+if deal_number == 1:
+
+    results.append("No obvious 4-seat listings detected.")
 
 results.append(f"Source: Gametime")
 results.append(f"Event Link: {EVENT_URL}\n")
