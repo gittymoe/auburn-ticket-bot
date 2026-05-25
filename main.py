@@ -20,6 +20,17 @@ SITES = {
 
 all_results = []
 
+CARD_SELECTORS = [
+    '[class*="ticket"]',
+    '[class*="listing"]',
+    '[class*="event"]',
+    '[class*="seat"]',
+    '[data-testid*="listing"]',
+    '[data-testid*="ticket"]',
+    'article',
+    'li'
+]
+
 with sync_playwright() as p:
 
     browser = p.chromium.launch(headless=True)
@@ -36,48 +47,84 @@ with sync_playwright() as p:
 
             page.wait_for_timeout(15000)
 
-            body_text = page.locator("body").inner_text()
-
-            lines = []
-
-            for line in body_text.splitlines():
-
-                clean = line.strip()
-
-                if clean:
-                    lines.append(clean)
-
             ticket_blocks = []
 
-            for i, line in enumerate(lines):
+            #
+            # Try structured selectors first
+            #
 
-                if "$" in line:
+            for selector in CARD_SELECTORS:
 
-                    start = max(0, i - 4)
-                    end = min(len(lines), i + 5)
+                try:
 
-                    nearby = lines[start:end]
+                    elements = page.locator(selector)
 
-                    combined = " | ".join(nearby)
+                    count = min(elements.count(), 40)
 
-                    combined_lower = combined.lower()
+                    for i in range(count):
 
-                    if (
-                        "row" in combined_lower
-                        or "upper" in combined_lower
-                        or "lower" in combined_lower
-                        or "club" in combined_lower
-                        or "section" in combined_lower
-                        or "seat" in combined_lower
-                        or "deal" in combined_lower
-                        or "fees" in combined_lower
-                        or "/ea" in combined_lower
-                        or "ticket" in combined_lower
-                        or "$" in combined
-                    ):
+                        try:
+
+                            text = elements.nth(i).inner_text()
+
+                            clean = text.strip()
+
+                            if (
+                                "$" in clean
+                                and len(clean) > 20
+                                and len(clean) < 1200
+                            ):
+
+                                lower = clean.lower()
+
+                                if (
+                                    "section" in lower
+                                    or "row" in lower
+                                    or "deal" in lower
+                                    or "ticket" in lower
+                                    or "seat" in lower
+                                    or "fees" in lower
+                                ):
+
+                                    if clean not in ticket_blocks:
+                                        ticket_blocks.append(clean)
+
+                        except:
+                            pass
+
+                except:
+                    pass
+
+            #
+            # Fallback to body text if needed
+            #
+
+            if len(ticket_blocks) == 0:
+
+                body_text = page.locator("body").inner_text()
+
+                lines = [
+                    line.strip()
+                    for line in body_text.splitlines()
+                    if line.strip()
+                ]
+
+                for i, line in enumerate(lines):
+
+                    if "$" in line:
+
+                        nearby = lines[
+                            max(0, i - 3):min(len(lines), i + 4)
+                        ]
+
+                        combined = " | ".join(nearby)
 
                         if combined not in ticket_blocks:
                             ticket_blocks.append(combined)
+
+            #
+            # Build email output
+            #
 
             all_results.append("")
             all_results.append("=" * 60)
@@ -89,7 +136,7 @@ with sync_playwright() as p:
             if len(ticket_blocks) == 0:
 
                 all_results.append(
-                    "No structured ticket listings detected."
+                    "No ticket listings detected."
                 )
 
             else:
@@ -98,44 +145,28 @@ with sync_playwright() as p:
 
                     all_results.append(f"Deal #{idx}")
 
-                    all_results.append(block)
+                    compact = " ".join(block.split())
 
-                    prices = re.findall(r"\$\d+", block)
+                    all_results.append(compact)
 
-                    if len(prices) > 0:
+                    prices = re.findall(r"\$\d+", compact)
 
-                        numeric_prices = []
+                    if prices:
 
-                        for p_text in prices:
+                        numeric = [
+                            int(p.replace("$", ""))
+                            for p in prices
+                        ]
 
-                            value = int(
-                                p_text.replace("$", "")
-                            )
-
-                            numeric_prices.append(value)
-
-                        cheapest = min(numeric_prices)
-
-                        total_for_four = cheapest * 4
+                        cheapest = min(numeric)
 
                         all_results.append(
                             f"Estimated Per Ticket: ${cheapest}"
                         )
 
                         all_results.append(
-                            f"Estimated Total For 4 Tickets: ${total_for_four}"
+                            f"Estimated Total For 4: ${cheapest * 4}"
                         )
-
-                    lower_block = block.lower()
-
-                    if "upper" in lower_block:
-                        all_results.append("Area: Upper Level")
-
-                    if "lower" in lower_block:
-                        all_results.append("Area: Lower Level")
-
-                    if "club" in lower_block:
-                        all_results.append("Area: Club Level")
 
                     all_results.append(f"Buy Link: {url}")
                     all_results.append("")
@@ -161,7 +192,6 @@ msg = MIMEText(message)
 msg["Subject"] = "Auburn vs Tennessee Ticket Deals"
 
 msg["From"] = GMAIL_USER
-
 msg["To"] = ALERT_EMAIL
 
 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
