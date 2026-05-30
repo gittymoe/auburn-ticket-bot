@@ -114,7 +114,7 @@ with sync_playwright() as p:
                     if "$" in line:
 
                         nearby = lines[
-                            max(0, i - 3):min(len(lines), i + 4)
+                            max(0, i - 3):min(len(lines), i + 5)
                         ]
 
                         combined = " | ".join(nearby)
@@ -165,7 +165,7 @@ with sync_playwright() as p:
                         )
 
                         all_results.append(
-                            f"Estimated Total For 4: ${cheapest * 4}"
+                            f"Estimated Total For 5: ${cheapest * 5}"
                         )
 
                     all_results.append(f"Buy Link: {url}")
